@@ -1,0 +1,53 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "This file is @generated automatically"
+    ],
+    "content-hash": "7b0a71643019c75fe00a7763242d94ca",
+    "packages": [
+        {
+            "name": "arhamlabs/error-handler",
+            "version": "1.0.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/arham-labs/error-handler-laravel.git",
+                "reference": "7b994acee470bfbbb109bb79f932f404d1bb6330"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/arham-labs/error-handler-laravel/zipball/7b994acee470bfbbb109bb79f932f404d1bb6330",
+                "reference": "7b994acee470bfbbb109bb79f932f404d1bb6330",
+                "shasum": ""
+            },
+            "type": "project",
+            "autoload": {
+                "psr-4": {
+                    "Arhamlabs\\ApiResponse\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "authors": [
+                {
+                    "name": "ArhamLabs",
+                    "email": "hello@arhamlabs.com"
+                }
+            ],
+            "description": "This package is a template used to create API responses which can be overwritten",
+            "support": {
+                "issues": "https://github.com/arham-labs/error-handler-laravel/issues",
+                "source": "https://github.com/arham-labs/error-handler-laravel/tree/1.0.3"
+            },
+            "time": "2022-12-20T13:22:33+00:00"
+        }
+    ],
+    "packages-dev": [],
+    "aliases": [],
+    "minimum-stability": "dev",
+    "stability-flags": [],
+    "prefer-stable": true,
+    "prefer-lowest": false,
+    "platform": [],
+    "platform-dev": [],
+    "plugin-api-version": "2.3.0"
+}

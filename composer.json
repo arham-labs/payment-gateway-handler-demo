@@ -1,0 +1,21 @@
+{
+    "name": "arhamlabs/payment-gateway",
+    "description": "Test",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Arhamlabs\\PaymentGateway\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "ArhamLabs"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "arhamlabs/error-handler": "^1.0"
+    },
+    "prefer-stable": true
+}
