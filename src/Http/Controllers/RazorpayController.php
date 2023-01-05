@@ -333,6 +333,10 @@ class RazorpayController extends Controller
 		}
 		PgPayment::where('payment_id', $paymentId)->update(['status' => $status]);
 	}
+	public function webhook()
+	{
+		return $this->apiResponse->getResponse(200, [], 'Webhook under progress');
+	}
 	public function template()
 	{
 		$response = '';
