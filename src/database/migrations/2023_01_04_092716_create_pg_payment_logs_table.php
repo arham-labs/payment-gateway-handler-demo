@@ -18,7 +18,7 @@ class CreatePgPaymentLogsTable extends Migration
             $table->uuid('uuid');
             // $table->bigInteger('payment_id')->unsigned()->index();
             // $table->foreign('payment_id')->references('id')->on('pg_payments')->onDelete('cascade');
-            $table->string('payment_id');
+            $table->string('rzp_payment_id')->index();
             $table->string('status')->default('created');
             $table->timestamps();
         });
