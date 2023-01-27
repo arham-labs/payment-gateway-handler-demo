@@ -947,6 +947,10 @@ class RazorpayController extends Controller
 		Log::info(DB::getQueryLog());
 		Log::info("Subscription Charged End");
 	}
+	public function webhook()
+	{
+		return $this->apiResponse->getResponse(200, [], 'Webhook under progress');
+	}
 	public function template()
 	{
 		$response = '';
