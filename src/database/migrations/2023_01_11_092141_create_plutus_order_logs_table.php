@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreatePgOrderLogsTable extends Migration
+class CreatePlutusOrderLogsTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,7 +13,7 @@ class CreatePgOrderLogsTable extends Migration
      */
     public function up()
     {
-        Schema::create('pg_order_logs', function (Blueprint $table) {
+        Schema::create('plutus_order_logs', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid');
             // $table->bigInteger('order_id')->unsigned()->index();
@@ -31,6 +31,6 @@ class CreatePgOrderLogsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('pg_order_logs');
+        Schema::dropIfExists('plutus_order_logs');
     }
 }

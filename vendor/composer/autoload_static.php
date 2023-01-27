@@ -9,19 +9,19 @@ class ComposerStaticInit160ed176994ec799462c424983efd29b
     public static $prefixLengthsPsr4 = array (
         'A' => 
         array (
-            'Arhamlabs\\PaymentGateway\\Tests\\' => 31,
             'Arhamlabs\\PaymentGateway\\' => 25,
+            'Arhamlabs\\ApiResponse\\' => 22,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'Arhamlabs\\PaymentGateway\\Tests\\' => 
-        array (
-            0 => __DIR__ . '/../..' . '/tests',
-        ),
         'Arhamlabs\\PaymentGateway\\' => 
         array (
             0 => __DIR__ . '/../..' . '/src',
+        ),
+        'Arhamlabs\\ApiResponse\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/arhamlabs/error-handler/src',
         ),
     );
 

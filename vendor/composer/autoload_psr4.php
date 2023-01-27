@@ -6,6 +6,6 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
-    'Arhamlabs\\PaymentGateway\\Tests\\' => array($baseDir . '/tests'),
     'Arhamlabs\\PaymentGateway\\' => array($baseDir . '/src'),
+    'Arhamlabs\\ApiResponse\\' => array($vendorDir . '/arhamlabs/error-handler/src'),
 );

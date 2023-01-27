@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreatePgOrdersTable extends Migration
+class CreatePlutusOrdersTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,7 +13,7 @@ class CreatePgOrdersTable extends Migration
      */
     public function up()
     {
-        Schema::create('pg_orders', function (Blueprint $table) {
+        Schema::create('plutus_orders', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid');
             $table->string('order_id');
@@ -26,7 +26,7 @@ class CreatePgOrdersTable extends Migration
             $table->string('rzp_offer_id')->nullable();
             $table->json('notes');
             $table->string('status');
-            $table->string('created_at_timestamp')->nullable();
+            $table->string('rzp_created_at')->nullable();
             $table->timestamps();
             $table->unique(['order_id', 'user_id', 'rzp_order_id']);
         });
@@ -39,6 +39,6 @@ class CreatePgOrdersTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('pg_orders');
+        Schema::dropIfExists('plutus_orders');
     }
 }

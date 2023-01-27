@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreatePgPaymentsTable extends Migration
+class CreatePlutusPaymentsTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,7 +13,7 @@ class CreatePgPaymentsTable extends Migration
      */
     public function up()
     {
-        Schema::create('pg_payments', function (Blueprint $table) {
+        Schema::create('plutus_payments', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid');
             // $table->bigInteger('order_id')->unsigned()->index();
@@ -47,7 +47,7 @@ class CreatePgPaymentsTable extends Migration
             $table->string('error_step')->nullable();
             $table->string('error_reason')->nullable();
             $table->json('acquirer_data')->nullable();
-            $table->string('created_at_timestamp')->nullable();
+            $table->string('rzp_created_at')->nullable();
             $table->timestamps();
 
             $table->unique(['rzp_order_id', 'rzp_payment_id']);
@@ -61,6 +61,6 @@ class CreatePgPaymentsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('pg_payments');
+        Schema::dropIfExists('plutus_payments');
     }
 }

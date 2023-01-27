@@ -55,7 +55,7 @@ trait RazorpayConfigValidation
     public function paymentCaptureValidation()
     {
         $messages = [
-            'capture_payment' => 'Please set allow_capture_payment in your .env file',
+            'allow_capture_payment.required' => 'Please set allow_capture_payment in your .env file',
         ];
 
         return Validator::make([
@@ -63,7 +63,21 @@ trait RazorpayConfigValidation
 
 
         ], [
-                "allow_capture_payment" => "bail|required:razorpay_test_id",
+                "allow_capture_payment" => "bail|required:allow_capture_payment",
+            ], $messages);
+    }
+
+    public function futureSubscriptionValidation()
+    {
+        $messages = [
+            'allow_future_subscription_payment.required' => 'Please set allow_future_subscription_payment in your .env file'
+        ];
+
+        return Validator::make([
+            'allow_future_subscription_payment' => config('arhamlabs_pg.allow_future_subscription_payment')
+
+        ], [
+                "allow_future_subscription_payment" => "bail|required:allow_future_subscription_payment",
             ], $messages);
     }
 
