@@ -172,15 +172,19 @@ class RazorpayController extends Controller
 		return $response;
 	}
 
-	public function subscription($planId, $startDate, $addons, $notes) // $planId
+	public function subscription($planId, $date, $addons, $notes) // $planId
 
 	{
 
 		try {
 			if ($this->validation()['statusCode'] === 200) {
 				// $startDate = "2023-01-15";
-				$startDate = $startDate . ' ' . date('H:i:s');
-				$startDate = date("Y-m-d H:i:s", (strtotime(date($startDate)) + 5)); // add 5 sec 
+				$startDate = null;
+				if (!empty($date)) {
+					$startDate = $date . ' ' . date('H:i:s');
+					$startDate = date("Y-m-d H:i:s", (strtotime(date($startDate)) + 5)); // add 5 sec 
+				}
+
 
 				// dd();
 				$currentDate = date('Y-m-d');
@@ -197,6 +201,7 @@ class RazorpayController extends Controller
 				// 	"notes_key_1" => "Tea, Earl Grey, Hot",
 				// 	"notes_key_2" => "Tea, Earl Grey… decaf."
 				// ];
+				// dd($startDate, strtotime($startDate));
 				if ($startDate > $currentDate) {
 					if (
 						config('arhamlabs_pg.allow_future_subscription_payment') == false ||
@@ -211,7 +216,7 @@ class RazorpayController extends Controller
 					"plan_id" => $planId,
 					"total_count" => 12,
 					"quantity" => 1,
-					"start_at" => strtotime($startDate),
+					"start_at" => !empty($startDate) ? strtotime($startDate) : $startDate,
 					// "expire_by" => 1893456000,
 					"customer_notify" => 1,
 					"addons" => $addons,
@@ -246,7 +251,7 @@ class RazorpayController extends Controller
 				throw new Exception($this->validation()['message'], Response::HTTP_UNPROCESSABLE_ENTITY);
 			}
 		} catch (Exception $e) {
-			// dd($e);
+			dd($e);
 			Log::error($e);
 			$response = $this->apiResponse->getResponse($e->getCode(), [], $e->getMessage()); // ['statusCode' => $e->getCode(), 'message' => $e->getMessage()];
 		}
@@ -277,15 +282,16 @@ class RazorpayController extends Controller
 	{
 		return empty($array) ? [] : $array;
 	}
-	public function createOrder($userId, $subscriptionId, $amount, $currency = "INR", $receipt, $notes, $orderId)
+	public function createOrder($userId, $subscriptionId, $amount, $currency = "INR", $receipt, $notes, $orderId = null)
 	{
-		// dd($orderId);
 		$response = '';
 		try {
 			if ($this->validation()['statusCode'] === 200) {
+				if ($orderId == null) {
+					$orderId = "AL" . Str::upper(Str::random(13));
+				}
 
-				// $orderId = "AL" . Str::upper(Str::random(15));
-				// dd();
+				// dd($orderId);
 				$createOrderData = [
 					'user_id' => $this->checkEmptyString($userId),
 					'rzp_subscription_id' => $this->checkEmptyString($subscriptionId),
@@ -343,8 +349,12 @@ class RazorpayController extends Controller
 	{
 		try {
 			if ($this->validation()['statusCode'] === 200) {
-
-				$secret = config('arhamlabs_pg.razorpay_test_secret');
+				if(config('arhamlabs_pg.active_mode') == false){
+					$secret = config('arhamlabs_pg.razorpay_test_secret');
+				} else {
+					$secret = config('arhamlabs_pg.razorpay_live_secret');
+				}
+				// return $orderId;
 				$generatedSignature = hash_hmac('sha256', $orderId . "|" . $paymentId, $secret);
 				if ($generatedSignature == $signature) {
 					$response = $this->apiResponse->getResponse(200, array(), 'Verified Payment');
@@ -370,7 +380,7 @@ class RazorpayController extends Controller
 				$response = ApiCall::getCall($this->paymentUrl, $paymentId, $this->encodeRazorKey);
 
 				$jsonData = json_decode($response);
-				// dd();
+				// dd($jsonData);
 				$orderId = $jsonData->order_id;
 				$paymentId = $jsonData->id;
 				$amount = $jsonData->amount;
@@ -403,7 +413,7 @@ class RazorpayController extends Controller
 
 
 				$order = $this->orderRepository->checkOrderById($orderId);
-
+				// dd($order);
 
 				if (!empty($order)) {
 					// DB::enableQueryLog();
@@ -433,7 +443,8 @@ class RazorpayController extends Controller
 							'email' => $email,
 							'contact' => $contact,
 							'token_id' => $tokenId,
-							'notes' => json_decode(json_encode($notes), true, JSON_UNESCAPED_SLASHES), //json_encode($notes),
+							'notes' => json_decode(json_encode($notes), true, JSON_UNESCAPED_SLASHES),
+							//json_encode($notes),
 							'fee' => $fee,
 							'tax' => $tax,
 							// 'errorCode' => $errorCode,
@@ -447,7 +458,8 @@ class RazorpayController extends Controller
 							// 'errorReason' => $errorReason,
 							'error_reason' => $errorReason,
 							// 'acquirerData' => json_encode($acquirerData),
-							'acquirer_data' => json_decode(json_encode($acquirerData), true, JSON_UNESCAPED_SLASHES), //json_encode($acquirerData),
+							'acquirer_data' => json_decode(json_encode($acquirerData), true, JSON_UNESCAPED_SLASHES),
+							//json_encode($acquirerData),
 							'created_at' => (string) $createdAtTimestamp,
 							// 'createdAtTimestamp' => (string) $createdAtTimestamp,
 						];
@@ -460,11 +472,13 @@ class RazorpayController extends Controller
 					// else {
 					// 	throw new Exception("Payment already exists for the specified payment id $paymentId", Response::HTTP_UNPROCESSABLE_ENTITY);
 					// }
-					$this->updateOrderStatus($orderId);
+					$this->updateOrderStatus($orderId, $subscriptionId);
 					$this->updatePaymentStatus($paymentId);
 					$response = $this->apiResponse->getResponse(200, array('order_id' => $orderId, 'payment' => $jsonData)); // , '','','', [$capturePayment]
 				} else {
+					// dd($orderId, $subscriptionId);
 					$this->updateOrderStatus($orderId, $subscriptionId);
+
 					$this->updatePaymentStatus($paymentId);
 					$response = $this->apiResponse->getResponse(200, array('order_id' => $orderId, 'payment' => $jsonData)); // , '','','', [$capturePayment]
 
@@ -520,7 +534,9 @@ class RazorpayController extends Controller
 	public function updateOrderStatus($orderId, $subscriptionId = null)
 	{
 		$checkOrder = PlutusOrder::where('rzp_order_id', $orderId)->exists();
+		// dd($checkOrder);
 		if ($checkOrder == true) {
+			// dd('if');
 			$ch = curl_init();
 			curl_setopt($ch, CURLOPT_URL, "https://api.razorpay.com/v1/orders/$orderId");
 			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -540,15 +556,29 @@ class RazorpayController extends Controller
 				$plutusOrderLog->save();
 			}
 			PlutusOrder::where('rzp_order_id', $orderId)->update(['status' => $status]);
+			$response = ['status' => $status];
 		} else {
+			// dd('else');
 			$order = $this->orderRepository->getOrderByOrderId($this->orderUrl, $orderId, $this->encodeRazorKey);
 			$orderResult = json_decode($order);
+			$plutusSubscription = PlutusSubscription::select('notes')->where('rzp_subscription_id', $subscriptionId)->first();
+			if (!empty($plutusSubscription)) {
+				if (!empty($plutusSubscription['notes'])) {
+					$notes = json_decode($plutusSubscription['notes'], true);
+					if (!empty($notes) && !empty($notes['plutus_order_id'])) {
+						$plutusOrderId = $notes['plutus_order_id'];
+					} else {
+						$plutusOrderId = "AL" . Str::upper(Str::random(13));
+					}
+				}
 
+			}
 
 			$createOrderData = [
 				'user_id' => null,
 				'rzp_subscription_id' => $this->checkEmptyString($subscriptionId),
 				'rzp_order_id' => $orderResult->id,
+				'order_id' => $plutusOrderId,
 				'amount' => $orderResult->amount,
 				'currency' => $orderResult->currency,
 				'receipt' => $orderResult->receipt,
@@ -558,8 +588,21 @@ class RazorpayController extends Controller
 
 			// Add data in our database
 			$order = $this->orderRepository->createOrder($createOrderData);
+			$response = ['status' => $orderResult->status];
 		}
+		return $response;
 	}
+
+	public function getOrderByOrderId($orderId)
+	{
+		return PlutusOrder::where('rzp_order_id', $orderId)->first();
+	}
+
+	public function getPaymentByPaymentId($paymentId)
+	{
+		return PlutusPayment::where('rzp_payment_id', $paymentId)->first();
+	}
+
 	public function updatePaymentStatus($paymentId)
 	{
 		$checkPayment = PlutusPayment::where('rzp_payment_id', $paymentId)->exists();
@@ -582,13 +625,14 @@ class RazorpayController extends Controller
 				$plutusPaymentLog->save();
 			}
 			PlutusPayment::where('rzp_payment_id', $paymentId)->update(['status' => $status]);
+			// return true;
 		} else {
 			$payment = $this->paymentRepository->getPaymentByPaymentId($this->paymentUrl, $paymentId, $this->encodeRazorKey);
 			$paymentResult = json_decode($payment);
 			// $paymentResult->orderId = $paymentResult->order_id;
 			// $paymentResult->paymentId = $paymentResult->id;
 			$status = $paymentResult->status;
-			dd($paymentResult, $status);
+			// dd($paymentResult, $status);
 			$checkPaymentLogs = PlutusPaymentLog::where(['rzp_payment_id' => $paymentId, 'status' => $status])->exists();
 			if ($checkPaymentLogs == false) {
 				$plutusPaymentLog = new PlutusPaymentLog;
