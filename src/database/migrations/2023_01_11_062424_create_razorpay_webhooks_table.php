@@ -17,8 +17,8 @@ class CreateRazorpayWebhooksTable extends Migration
             $table->id();
             $table->uuid('uuid');
             $table->string('event');
-            $table->string('order_id');
-            $table->string('payment_id');
+            $table->string('order_id')->nullable();
+            $table->string('payment_id')->nullable();
             $table->string('subscription_id')->nullable();
             $table->json('payload');
             $table->string('rzp_created_at');
