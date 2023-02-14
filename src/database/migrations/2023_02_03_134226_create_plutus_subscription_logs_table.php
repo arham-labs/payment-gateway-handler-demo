@@ -18,7 +18,7 @@ class CreatePlutusSubscriptionLogsTable extends Migration
             $table->uuid('uuid');
             $table->string('rzp_plan_id');
             $table->string('rzp_subscription_id');
-            $table->string('rzp_payment_id');
+            $table->string('rzp_payment_id')->nullable();
             $table->string('rzp_customer_id')->nullable();
             $table->string('status')->default('created');
             $table->string('current_start_timestamp')->nullable();
@@ -41,7 +41,7 @@ class CreatePlutusSubscriptionLogsTable extends Migration
             $table->string('source')->nullable();
             $table->timestamps();
 
-            $table->unique(['rzp_plan_id', 'rzp_subscription_id', 'rzp_payment_id']);
+            $table->unique(['rzp_plan_id', 'rzp_subscription_id', 'rzp_payment_id'], 'plan_subs_pay_unique');
         });
     }
 
