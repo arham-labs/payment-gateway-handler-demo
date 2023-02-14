@@ -154,11 +154,13 @@ class RazorpayController extends Controller
 				$planResponse = json_decode($response);
 				Log::info($response);
 				if (!empty($planResponse->error)) {
-					$response = $this->apiResponse->getResponse(Response::HTTP_BAD_REQUEST, array(), $planResponse->error->description);
+					// $response = $this->apiResponse->getResponse(Response::HTTP_BAD_REQUEST, array(), $planResponse->error->description);
+					$response = (object) ['statusCode' => Response::HTTP_BAD_REQUEST, 'message' => $planResponse->error->description, 'data' => [], 'error' => $planResponse->error];
 				} else {
 					// dd($planResponse->id, $period, $interval, $planResponse->item, $planResponse->notes, $planResponse->created_at);
 					$this->planRepository->createPlan($planResponse->id, $period, $interval, $planResponse->item, $planResponse->notes, $planResponse->created_at);
-					$response = $this->apiResponse->getResponse(200, [$planResponse], 'Plan Created');
+					// $response = $this->apiResponse->getResponse(200, [$planResponse], 'Plan Created');
+					$response = (object) ['statusCode' => 200, 'message' => 'Plan Created', 'data' => $planResponse, 'error' => []];
 				}
 
 
@@ -167,7 +169,7 @@ class RazorpayController extends Controller
 			}
 		} catch (Exception $e) {
 			Log::error($e);
-			$response = ['statusCode' => $e->getCode(), 'message' => $e->getMessage()];
+			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage()];
 		}
 		return $response;
 	}
@@ -246,14 +248,16 @@ class RazorpayController extends Controller
 					$this->subscriptionRepository->createSubscription($planId, $subscriptionResponse);
 				}
 				Log::info($jsonResponse);
-				$response = $this->apiResponse->getResponse(200, array($subscriptionResponse), 'Subscription Created');
+				// $response = $this->apiResponse->getResponse(200, array($subscriptionResponse), 'Subscription Created');
+				$response = (object) ['statusCode' => 200, 'message' => 'Subscription Created', 'data' => $subscriptionResponse, 'error' => []];
 			} else {
 				throw new Exception($this->validation()['message'], Response::HTTP_UNPROCESSABLE_ENTITY);
 			}
 		} catch (Exception $e) {
-			dd($e);
+			// dd($e);
 			Log::error($e);
-			$response = $this->apiResponse->getResponse($e->getCode(), [], $e->getMessage()); // ['statusCode' => $e->getCode(), 'message' => $e->getMessage()];
+			// $response = $this->apiResponse->getResponse($e->getCode(), [], $e->getMessage()); // ['statusCode' => $e->getCode(), 'message' => $e->getMessage()];
+			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => $e->getMessage()];
 		}
 		return $response;
 	}
@@ -330,7 +334,8 @@ class RazorpayController extends Controller
 					$this->orderLogRepository->createOrderLog(['rzp_order_id' => $orderResponse->id, 'status' => $orderResponse->status]);
 					$orderResponse->plutus_order_id = $orderId;
 
-					$response = $this->apiResponse->getResponse(200, [$orderResponse], 'Order Created');
+					// $response = $this->apiResponse->getResponse(200, [$orderResponse], 'Order Created');
+					$response = (object) ['statusCode' => 200, 'message' => 'Order Created', 'data' => $orderResponse, 'error' => []];
 
 					// $response = $this->apiResponse->getResponse(200, [$planResponse], 'Plan Created');
 				}
@@ -340,7 +345,8 @@ class RazorpayController extends Controller
 			}
 		} catch (Exception $e) {
 			// dd($e);
-			$response = $this->apiResponse->getResponse($e->getCode(), array(), $e->getMessage());
+			// $response = $this->apiResponse->getResponse($e->getCode(), array(), $e->getMessage());
+			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => $e->getCode()];
 		}
 		return $response;
 	}
@@ -357,15 +363,19 @@ class RazorpayController extends Controller
 				// return $orderId;
 				$generatedSignature = hash_hmac('sha256', $orderId . "|" . $paymentId, $secret);
 				if ($generatedSignature == $signature) {
-					$response = $this->apiResponse->getResponse(200, array(), 'Verified Payment');
+					// $response = $this->apiResponse->getResponse(200, array(), 'Verified Payment');
+					$response = (object) ['statusCode' => 200, 'message' => 'Verified Payment', 'data' => [], 'error' => []];
 				} else {
-					$response = $this->apiResponse->getResponse(422, array(), 'Unverified Payment');
+					// $response = $this->apiResponse->getResponse(422, array(), 'Unverified Payment');
+					$response = (object) ['statusCode' => 422, 'message' => 'Unverified Payment', 'data' => [], 'error' => []];
 				}
 			} else {
 				throw new Exception($this->validation()['message'], Response::HTTP_UNPROCESSABLE_ENTITY);
 			}
 		} catch (Exception $e) {
-			$response = $this->apiResponse->getResponse($e->getCode(), array(), $e->getMessage());
+			
+			// $response = $this->apiResponse->getResponse($e->getCode(), array(), $e->getMessage());
+			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => $e->getMessage()];
 		}
 		return $response;
 	}
@@ -474,14 +484,16 @@ class RazorpayController extends Controller
 					// }
 					$this->updateOrderStatus($orderId, $subscriptionId);
 					$this->updatePaymentStatus($paymentId);
-					$response = $this->apiResponse->getResponse(200, array('order_id' => $orderId, 'payment' => $jsonData)); // , '','','', [$capturePayment]
+					// $response = $this->apiResponse->getResponse(200, array('order_id' => $orderId, 'payment' => $jsonData)); // , '','','', [$capturePayment]
+					$response = (object) ['statusCode' => 200, 'message' => '', 'data' => (object)['order_id' => $orderId, 'payment' => $jsonData], 'error' => []];
+
 				} else {
 					// dd($orderId, $subscriptionId);
 					$this->updateOrderStatus($orderId, $subscriptionId);
 
 					$this->updatePaymentStatus($paymentId);
-					$response = $this->apiResponse->getResponse(200, array('order_id' => $orderId, 'payment' => $jsonData)); // , '','','', [$capturePayment]
-
+					// $response = $this->apiResponse->getResponse(200, array('order_id' => $orderId, 'payment' => $jsonData)); // , '','','', [$capturePayment]
+					$response = (object) ['statusCode' => 200, 'message' => '', 'data' => (object)['order_id' => $orderId, 'payment' => $jsonData], 'error' => []];
 					// throw new Exception("Order could not be found for the specified payment id $paymentId", Response::HTTP_UNPROCESSABLE_ENTITY);
 				}
 			} else {
@@ -489,7 +501,8 @@ class RazorpayController extends Controller
 			}
 		} catch (Exception $e) {
 			// dd($e);
-			$response = $this->apiResponse->getResponse($e->getCode(), array(), $e->getMessage());
+			// $response = $this->apiResponse->getResponse($e->getCode(), array(), $e->getMessage());
+			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => $e->getMessage()];
 		}
 		return $response;
 	}
