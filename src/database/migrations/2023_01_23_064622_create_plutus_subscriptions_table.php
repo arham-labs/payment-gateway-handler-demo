@@ -22,6 +22,7 @@ class CreatePlutusSubscriptionsTable extends Migration
             $table->string('status')->default('created');
             $table->string('current_start_timestamp')->nullable();
             $table->string('current_end_timestamp')->nullable();
+            $table->string('ended_at_timestamp')->nullable();
             $table->integer('quantity')->nullable();
             $table->json('notes')->nullable();
             $table->string('charge_at_timestamp')->nullable();
