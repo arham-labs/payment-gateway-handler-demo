@@ -5,13 +5,13 @@ namespace Arhamlabs\PaymentGateway\Http\Controllers;
 
 
 
-use Arhamlabs\PaymentGateway\Interfaces\Razorpay\SubscriptionRepositoryInterface;
 use Exception;
 use Carbon\Carbon;
 use App\Models\PlutusPlan;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use App\Models\SubscriptionLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
@@ -26,18 +26,21 @@ use Arhamlabs\PaymentGateway\Models\PgPayment;
 use Arhamlabs\PaymentGateway\Models\PgOrderLog;
 use Arhamlabs\PaymentGateway\Models\PlutusOrder;
 use Arhamlabs\PaymentGateway\Models\PgPaymentLog;
+use Arhamlabs\PaymentGateway\Models\PlutusRefund;
 use Arhamlabs\PaymentGateway\Models\PlutusPayment;
 use Arhamlabs\PaymentGateway\Models\PgSubscription;
 use Arhamlabs\PaymentGateway\Models\PlutusOrderLog;
 use Arhamlabs\PaymentGateway\Models\RazorpayWebhook;
 use Arhamlabs\PaymentGateway\Models\PlutusPaymentLog;
 use Arhamlabs\PaymentGateway\Models\PlutusSubscription;
+use Arhamlabs\PaymentGateway\Models\PlutusSubscriptionLog;
 use Arhamlabs\PaymentGateway\traits\RazorpayConfigValidation;
 use Arhamlabs\PaymentGateway\Interfaces\Razorpay\PlanRepositoryInterface;
 use Arhamlabs\PaymentGateway\Interfaces\Razorpay\OrderRepositoryInterface;
 use Arhamlabs\PaymentGateway\Interfaces\Razorpay\PaymentRepositoryInterface;
 use Arhamlabs\PaymentGateway\Interfaces\Razorpay\OrderLogRepositoryInterface;
 use Arhamlabs\PaymentGateway\Interfaces\Razorpay\PaymentLogRepositoryInterface;
+use Arhamlabs\PaymentGateway\Interfaces\Razorpay\SubscriptionRepositoryInterface;
 
 
 class RazorpayController extends Controller
@@ -174,8 +177,7 @@ class RazorpayController extends Controller
 		return $response;
 	}
 
-	public function subscription($planId, $date, $addons, $notes) // $planId
-
+	public function subscription($planId, $date, $addons, $notes, $offerId)
 	{
 
 		try {
@@ -222,7 +224,7 @@ class RazorpayController extends Controller
 					// "expire_by" => 1893456000,
 					"customer_notify" => 1,
 					"addons" => $addons,
-					// "offer_id"=>"{offer_id}",
+					"offer_id" => $offerId,
 					"notes" => $notes
 
 				];
@@ -237,6 +239,7 @@ class RazorpayController extends Controller
 				Log::info($jsonResponse);
 
 				$subscriptionResponse = json_decode($jsonResponse);
+				// dd($subscriptionResponse);
 				if (!empty($subscriptionResponse->error)) {
 					throw new Exception($subscriptionResponse->error->description, Response::HTTP_UNPROCESSABLE_ENTITY);
 				}
@@ -246,6 +249,35 @@ class RazorpayController extends Controller
 
 				if ($checkSubscription == false) {
 					$this->subscriptionRepository->createSubscription($planId, $subscriptionResponse);
+				}
+
+				$checkSubscriptionLog = PlutusSubscriptionLog::where([
+					'rzp_subscription_id' => $subscriptionResponse->id,
+					'status' => $subscriptionResponse->status
+				])->exists();
+				$checkSubscriptionLog = PlutusSubscriptionLog::where(['rzp_subscription_id' => $subscriptionResponse->id, 'status' => $subscriptionResponse->status])->exists();
+				if ($checkSubscriptionLog == false) {
+					$checkSubscriptionLog = PlutusSubscriptionLog::create([
+						'uuid' => Str::uuid(),
+						'rzp_plan_id' => $subscriptionResponse->plan_id,
+						'rzp_subscription_id' => $subscriptionResponse->id,
+						'rzp_customer_id' => empty($subscriptionResponse->customer_id) ? null : $subscriptionResponse->customer_id,
+						'status' => $subscriptionResponse->status,
+						'quantity' => $subscriptionResponse->quantity,
+						'notes' => json_encode($subscriptionResponse->notes),
+						'charge_at_timestamp' => $subscriptionResponse->charge_at,
+						'start_at_timestamp' => $subscriptionResponse->start_at,
+						'end_at_timestamp' => $subscriptionResponse->end_at,
+						'total_count' => $subscriptionResponse->total_count,
+						'paid_count' => $subscriptionResponse->paid_count,
+						'customer_notify' => $subscriptionResponse->customer_notify,
+						'addons' => empty($subscriptionResponse->addons) ? null : json_encode($subscriptionResponse->addons),
+						'created_at_timestamp' => $subscriptionResponse->created_at,
+						'expire_by_timestamp' => $subscriptionResponse->expire_by,
+						'has_scheduled_changes' => $subscriptionResponse->has_scheduled_changes,
+						'remaining_count' => $subscriptionResponse->remaining_count,
+						'source' => $subscriptionResponse->source
+					]);
 				}
 				Log::info($jsonResponse);
 				// $response = $this->apiResponse->getResponse(200, array($subscriptionResponse), 'Subscription Created');
@@ -262,6 +294,147 @@ class RazorpayController extends Controller
 		return $response;
 	}
 
+	public function updateSubscriptionStatus($subscriptionId)
+	{
+		try {
+			$subscription = PlutusSubscription::where(['rzp_subscription_id' => $subscriptionId])->first();
+			if (!empty($subscription)) {
+				$ch = curl_init();
+				curl_setopt($ch, CURLOPT_URL, "https://api.razorpay.com/v1/subscriptions/$subscriptionId");
+				curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+				// curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($subscriptionData));
+				curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Basic ' . $this->encodeRazorKey]);
+				$jsonResponse = curl_exec($ch);
+				curl_close($ch);
+				$subscriptionResponse = json_decode($jsonResponse);
+				$updateData = [
+					'status' => $subscriptionResponse->status,
+					'current_start_timestamp' => $subscriptionResponse->current_start,
+					'current_end_timestamp' => $subscriptionResponse->current_end,
+					'ended_at_timestamp' => $subscriptionResponse->ended_at,
+					'charge_at_timestamp' => $subscriptionResponse->charge_at,
+					'start_at_timestamp' => $subscriptionResponse->start_at,
+					'end_at_timestamp' => $subscriptionResponse->end_at,
+					'total_count' => $subscriptionResponse->total_count,
+					'paid_count' => $subscriptionResponse->paid_count,
+					'remaining_count' => $subscriptionResponse->remaining_count,
+				];
+				PlutusSubscription::where(['rzp_subscription_id' => $subscriptionId])
+					->update($updateData);
+
+				$checkSubscriptionLog = PlutusSubscriptionLog::where([
+					'rzp_subscription_id' => $subscriptionId,
+					'status' => $subscriptionResponse->status
+				])->exists();
+				$checkSubscriptionLog = PlutusSubscriptionLog::where(['rzp_subscription_id' => $subscriptionResponse->id, 'status' => $subscriptionResponse->status])->exists();
+				if ($checkSubscriptionLog == false) {
+					$checkSubscriptionLog = PlutusSubscriptionLog::create([
+						'uuid' => Str::uuid(),
+						'rzp_plan_id' => $subscriptionResponse->plan_id,
+						'rzp_subscription_id' => $subscriptionResponse->id,
+						'rzp_customer_id' => empty($subscriptionResponse->customer_id) ? null : $subscriptionResponse->customer_id,
+						'status' => $subscriptionResponse->status,
+						'quantity' => $subscriptionResponse->quantity,
+						'notes' => json_encode($subscriptionResponse->notes),
+						'charge_at_timestamp' => $subscriptionResponse->charge_at,
+						'start_at_timestamp' => $subscriptionResponse->start_at,
+						'end_at_timestamp' => $subscriptionResponse->end_at,
+						'total_count' => $subscriptionResponse->total_count,
+						'paid_count' => $subscriptionResponse->paid_count,
+						'customer_notify' => $subscriptionResponse->customer_notify,
+						'addons' => empty($subscriptionResponse->addons) ? null : json_encode($subscriptionResponse->addons),
+						'created_at_timestamp' => $subscriptionResponse->created_at,
+						'expire_by_timestamp' => $subscriptionResponse->expire_by,
+						'has_scheduled_changes' => $subscriptionResponse->has_scheduled_changes,
+						'remaining_count' => $subscriptionResponse->remaining_count,
+						'source' => $subscriptionResponse->source
+					]);
+				}
+				$response = (object) ['statusCode' => 200, 'message' => 'Subscription', 'data' => $subscription, 'error' => []];
+			}
+
+		} catch (Exception $e) {
+			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => [$e->getMessage()]];
+		}
+
+		return $response;
+	}
+	public function stopAutoRenewal($subscriptionId, $cancelAtCycleEnd)
+	{
+
+		try {
+			$cancelData = [
+				'cancel_at_cycle_end' => $cancelAtCycleEnd
+			];
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_URL, "https://api.razorpay.com/v1/subscriptions/$subscriptionId/cancel");
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($cancelData));
+			curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Basic ' . $this->encodeRazorKey]);
+			$response = curl_exec($ch);
+
+			curl_close($ch);
+			Log::info("stopAutoRenewal start");
+			Log::info($response);
+			Log::info("stopAutoRenewal end");
+
+			$subscriptionResponse = json_decode($response);
+			$checkSubscription = PlutusSubscription::where(['rzp_subscription_id' => $subscriptionResponse->id])->exists();
+			if ($checkSubscription == true) {
+				$updateSubscriptionData = [
+					'current_start_timestamp' => $subscriptionResponse->current_start,
+					'current_end_timestamp' => $subscriptionResponse->current_end,
+					'ended_at_timestamp' => $subscriptionResponse->ended_at,
+					'charge_at_timestamp' => $subscriptionResponse->charge_at,
+					'start_at_timestamp' => $subscriptionResponse->start_at,
+					'end_at_timestamp' => $subscriptionResponse->end_at,
+					'total_count' => $subscriptionResponse->total_count,
+					'paid_count' => $subscriptionResponse->paid_count,
+					'remaining_count' => $subscriptionResponse->remaining_count,
+				];
+				PlutusSubscription::
+					where(['rzp_subscription_id' => $subscriptionResponse->id])
+					->update($updateSubscriptionData);
+
+				//
+				$checkSubscriptionLog = PlutusSubscriptionLog::where(['rzp_subscription_id' => $subscriptionResponse->id, 'status' => $subscriptionResponse->status])->exists();
+				if ($checkSubscriptionLog == false) {
+					PlutusSubscriptionLog::create([
+						'uuid' => Str::uuid(),
+						'rzp_plan_id' => $subscriptionResponse->plan_id,
+						'rzp_subscription_id' => $subscriptionResponse->id,
+						'rzp_customer_id' => empty($subscriptionResponse->customer_id) ? null : $subscriptionResponse->customer_id,
+						'status' => $subscriptionResponse->status,
+						'quantity' => $subscriptionResponse->quantity,
+						'notes' => json_encode($subscriptionResponse->notes),
+						'charge_at_timestamp' => $subscriptionResponse->charge_at,
+						'start_at_timestamp' => $subscriptionResponse->start_at,
+						'end_at_timestamp' => $subscriptionResponse->end_at,
+						'total_count' => $subscriptionResponse->total_count,
+						'paid_count' => $subscriptionResponse->paid_count,
+						'customer_notify' => $subscriptionResponse->customer_notify,
+						'addons' => empty($subscriptionResponse->addons) ? null : json_encode($subscriptionResponse->addons),
+						'created_at_timestamp' => $subscriptionResponse->created_at,
+						'expire_by_timestamp' => $subscriptionResponse->expire_by,
+						'has_scheduled_changes' => $subscriptionResponse->has_scheduled_changes,
+						'remaining_count' => $subscriptionResponse->remaining_count,
+						'source' => $subscriptionResponse->source
+					]);
+				}
+
+			}
+
+
+
+			$resp = (object) ['statusCode' => 200, 'message' => 'Subscription', 'data' => $subscriptionResponse, 'error' => []];
+		} catch (Exception $e) {
+			Log::error($e);
+			// dd($e->getMessage());
+			$resp = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => []];
+		}
+		return $resp;
+
+	}
 	public function getSubscription($subscriptionId)
 	{
 		// return $subscriptionId;
@@ -306,6 +479,7 @@ class RazorpayController extends Controller
 					'receipt' => $receipt,
 					'notes' => json_decode(json_encode($notes), true, JSON_UNESCAPED_SLASHES),
 					'status' => 'pending',
+
 				];
 
 				// Add data in our database
@@ -344,7 +518,7 @@ class RazorpayController extends Controller
 				throw new Exception($this->validation()['message'], Response::HTTP_UNPROCESSABLE_ENTITY);
 			}
 		} catch (Exception $e) {
-			// dd($e);
+			dd($e);
 			// $response = $this->apiResponse->getResponse($e->getCode(), array(), $e->getMessage());
 			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => $e->getCode()];
 		}
@@ -373,7 +547,7 @@ class RazorpayController extends Controller
 				throw new Exception($this->validation()['message'], Response::HTTP_UNPROCESSABLE_ENTITY);
 			}
 		} catch (Exception $e) {
-			
+
 			// $response = $this->apiResponse->getResponse($e->getCode(), array(), $e->getMessage());
 			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => $e->getMessage()];
 		}
@@ -485,7 +659,7 @@ class RazorpayController extends Controller
 					$this->updateOrderStatus($orderId, $subscriptionId);
 					$this->updatePaymentStatus($paymentId);
 					// $response = $this->apiResponse->getResponse(200, array('order_id' => $orderId, 'payment' => $jsonData)); // , '','','', [$capturePayment]
-					$response = (object) ['statusCode' => 200, 'message' => '', 'data' => (object)['order_id' => $orderId, 'payment' => $jsonData], 'error' => []];
+					$response = (object) ['statusCode' => 200, 'message' => '', 'data' => (object) ['order_id' => $orderId, 'payment' => $jsonData], 'error' => []];
 
 				} else {
 					// dd($orderId, $subscriptionId);
@@ -493,7 +667,7 @@ class RazorpayController extends Controller
 
 					$this->updatePaymentStatus($paymentId);
 					// $response = $this->apiResponse->getResponse(200, array('order_id' => $orderId, 'payment' => $jsonData)); // , '','','', [$capturePayment]
-					$response = (object) ['statusCode' => 200, 'message' => '', 'data' => (object)['order_id' => $orderId, 'payment' => $jsonData], 'error' => []];
+					$response = (object) ['statusCode' => 200, 'message' => '', 'data' => (object) ['order_id' => $orderId, 'payment' => $jsonData], 'error' => []];
 					// throw new Exception("Order could not be found for the specified payment id $paymentId", Response::HTTP_UNPROCESSABLE_ENTITY);
 				}
 			} else {
@@ -1069,6 +1243,121 @@ class RazorpayController extends Controller
 		}
 		// dd($checkRazorpayWebhook, DB::getQueryLog());
 		Log::info("Subscription cancelled webhook end");
+	}
+
+	public function refund($paymentId, $amount, $notes)
+	{
+		try {
+			$refundData = [
+				"amount" => $amount,
+				"notes" => $notes,
+			];
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_URL, "https://api.razorpay.com/v1/payments/$paymentId/refund");
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($refundData));
+			curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Basic ' . $this->encodeRazorKey]);
+			$response = curl_exec($ch);
+			curl_close($ch);
+			$jsonData = json_decode($response);
+
+
+			$plutusRefund = new PlutusRefund;
+			$plutusRefund->uuid = Str::uuid();
+			$plutusRefund->rzp_refund_id = $jsonData->id;
+			$plutusRefund->amount = $amount;
+			$plutusRefund->currency = "INR";
+			$plutusRefund->rzp_payment_id = $paymentId;
+			$plutusRefund->notes = json_encode($notes);
+			$plutusRefund->acquirer_data = json_encode($jsonData->acquirer_data);
+			$plutusRefund->created_at_timestamp = $jsonData->created_at;
+			$plutusRefund->batch_id = $jsonData->batch_id;
+			$plutusRefund->status = $jsonData->status;
+			$plutusRefund->speed_processed = $jsonData->speed_processed;
+			$plutusRefund->speed_requested = $jsonData->speed_requested;
+			$plutusRefund->save();
+
+			$response = (object) ['statusCode' => 200, 'message' => 'Refund Data', 'data' => $jsonData, 'error' => []];
+		} catch (Exception $e) {
+			// dd($e);
+			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => $e->getMessage()];
+		}
+		return $response;
+
+	}
+
+	public function cancel_subscription($subscriptionId, $cancelAtCycleEnd)
+	{
+		// Cancel subscription
+
+		// https://api.razorpay.com/v1/subscriptions/{sub_id}/cancel
+		// cancel_at_cycle_end
+		// dd($subscriptionId, $cancelAtCycleEnd);
+
+		try {
+			$cancelData = [
+				'cancel_at_cycle_end' => $cancelAtCycleEnd
+			];
+
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_URL, "https://api.razorpay.com/v1/subscriptions/$subscriptionId/cancel");
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($cancelData));
+			curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Basic ' . $this->encodeRazorKey]);
+			$cancelResponse = curl_exec($ch);
+			// curl_close($ch);
+
+
+
+			// Get Latest data
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_URL, "https://api.razorpay.com/v1/subscriptions/$subscriptionId");
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Basic ' . $this->encodeRazorKey]);
+			$response = curl_exec($ch);
+			curl_close($ch);
+
+			$subscriptionResponse = json_decode($response, JSON_UNESCAPED_SLASHES);
+			// dd($subscriptionResponse['ended_at']);
+			if (!empty($subscriptionResponse->error)) {
+				$response = (object) ['statusCode' => 422, 'message' => $subscriptionResponse->error->description, 'data' => [], 'error' => $subscriptionResponse];
+			} else {
+				$checkSubscription = PlutusSubscription::where('rzp_subscription_id', $subscriptionId)->exists();
+				if ($checkSubscription == true) {
+					PlutusSubscription::where('rzp_subscription_id', $subscriptionId)->update(['status' => $subscriptionResponse['status'], 'ended_at_timestamp' => $subscriptionResponse['ended_at']]);
+				}
+				$checkSubscriptionLog = PlutusSubscriptionLog::where(['rzp_subscription_id' => $subscriptionId, 'status' => $subscriptionResponse['status']])->exists();
+				if ($checkSubscriptionLog == false) {
+					PlutusSubscriptionLog::create([
+						'uuid' => Str::uuid(),
+						'rzp_plan_id' => $subscriptionResponse['plan_id'],
+						'rzp_subscription_id' => $subscriptionResponse['id'],
+						'rzp_customer_id' => empty($subscriptionResponse['customer_id']) ? null : $subscriptionResponse['customer_id'],
+						'status' => $subscriptionResponse['status'],
+						'ended_at_timestamp' => $subscriptionResponse['ended_at'],
+						'quantity' => $subscriptionResponse['quantity'],
+						'notes' => json_encode($subscriptionResponse['notes']),
+						'charge_at_timestamp' => $subscriptionResponse['charge_at'],
+						'start_at_timestamp' => $subscriptionResponse['start_at'],
+						'end_at_timestamp' => $subscriptionResponse['end_at'],
+						'total_count' => $subscriptionResponse['total_count'],
+						'paid_count' => $subscriptionResponse['paid_count'],
+						'customer_notify' => $subscriptionResponse['customer_notify'],
+						'addons' => empty($subscriptionResponse['addons']) ? null : json_encode($subscriptionResponse['addons']),
+						'created_at_timestamp' => $subscriptionResponse['created_at'],
+						'expire_by_timestamp' => $subscriptionResponse['expire_by'],
+						'has_scheduled_changes' => $subscriptionResponse['has_scheduled_changes'],
+						'remaining_count' => $subscriptionResponse['remaining_count'],
+						'source' => $subscriptionResponse['source']
+					]);
+				}
+				$response = (object) ['statusCode' => 200, 'message' => 'Subscription Cancel', 'data' => $subscriptionResponse, 'error' => []];
+			}
+		} catch (Exception $e) {
+			// dd($e);
+			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => []];
+		}
+		return $response;
 	}
 	public function template()
 	{
