@@ -13,4 +13,8 @@ return [
     'allow_capture_payment' => env('ALLOW_CAPTURE_PAYMENT'),
     'allow_subscription' => env('ALLOW_SUBSCRIPTION'),
     'allow_future_subscription_payment' => env('ALLOW_FUTURE_SUBSCRIPTION_PAYMENT'),
+    'stop_auto_renewal' => env('STOP_AUTO_RENEWAL'),
+    'allow_refund' => env('ALLOW_REFUND'),
+    'transfer_fund' => env('TRANSFER_FUND'),
+    'account_id' => env('ACCOUNT_ID'),
 ];

@@ -2,20 +2,22 @@
 
 namespace Arhamlabs\PaymentGateway\Http\Controllers;
 
+use Arhamlabs\PaymentGateway\Models\PlutusTransfer;
 use Exception;
 use Carbon\Carbon;
-use App\Models\PlutusPlan;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Http;
 use Arhamlabs\ApiResponse\ApiResponse;
 use Illuminate\Support\Facades\Validator;
 use Arhamlabs\PaymentGateway\traits\ApiCall;
 
 
+use Arhamlabs\PaymentGateway\Models\PlutusPlan;
 use Arhamlabs\PaymentGateway\Models\PlutusOrder;
 use Arhamlabs\PaymentGateway\Models\PlutusRefund;
 use Arhamlabs\PaymentGateway\Models\PlutusPayment;
@@ -48,6 +50,10 @@ class RazorpayController extends Controller
 
 	public $planRepository;
 	public $subscriptionRepository;
+
+	public $client;
+
+
 	public function __construct(ApiResponse $apiResponse, OrderRepositoryInterface $orderRepositoryInterface, OrderLogRepositoryInterface $orderLogRepositoryInterface, PaymentRepositoryInterface $paymentRepositoryInterface, PaymentLogRepositoryInterface $paymentLogRepositoryInterface, PlanRepositoryInterface $planRepositoryInterface, SubscriptionRepositoryInterface $subscriptionRepositoryInterface)
 	{
 		$this->apiResponse = $apiResponse;
@@ -62,24 +68,68 @@ class RazorpayController extends Controller
 		$this->paymentLogRepository = $paymentLogRepositoryInterface;
 		$this->planRepository = $planRepositoryInterface;
 		$this->subscriptionRepository = $subscriptionRepositoryInterface;
+		// $this->client = new \GuzzleHttp\Client([
+		// 	'headers' => $this->headers
+		// ]);
 	}
 
 
+	public function checkPlan($planId)
+	{
+		// try {
+		// 	if ($this->planRepository->checkPlan($planId) == true) {
+		// 		$response = (object) ['statusCode' => 200, 'message' => 'Plan Exists', 'data' => $this->getPlan($planId)->data];
+		// 	} else {
+		// 		$response = (object) ['statusCode' => 404, 'message' => 'Plan Not Found', 'data' => [$this->planRepository->checkPlan($planId)]];
+		// 	}
+
+		// } catch (Exception $e) {
+		// 	$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => $e];
+		// }
+		return $this->planRepository->checkPlan($planId);
+
+	}
+
+	public function createPrePlan($planId)
+	{
+		try {
+			$planResponseData = $this->getPlan($planId);
+			if ($planResponseData->statusCode == 200) {
+				if ($planResponseData->data) {
+					$planResponse = json_decode($planResponseData->data);
+					$planData = $this->planRepository->createPlan($planResponse->id, $planResponse->period, $planResponse->interval, $planResponse->item, $planResponse->notes, $planResponse->created_at);
+					$response = (object) ['statusCode' => 200, 'message' => 'Plan Created', 'data' => $planData, 'error' => []];
+				}
+			}
+		} catch (Exception $e) {
+			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage()];
+		}
+		return $response;
+	}
 	public function plan($period, $interval, $amount, $notes)
 	{
 		try {
 			if ($this->validation()['statusCode'] === 200) {
+
+
 				$planData = [
 					'period' => strtolower($period),
+					// $periodName
 					'interval' => $interval,
 					'item' => [
-						'name' => $period . ' pass',
+						'name' => $period,
 						'amount' => $amount * 100,
 						'currency' => 'INR',
-						'description' => 'Description for the test plan - ' . $period,
+						'description' => 'Description',
 					],
 					'notes' => $notes,
 				];
+				// dd($planData, $notes);
+				Log::info('==============================================================================================================================================================================');
+				Log::error("Package Plan Param");
+				Log::error((array) $planData);
+				Log::error("Package Plan Param");
+				Log::info('==============================================================================================================================================================================');
 				$ch = curl_init();
 				curl_setopt($ch, CURLOPT_URL, 'https://api.razorpay.com/v1/plans');
 				curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -93,6 +143,7 @@ class RazorpayController extends Controller
 				Log::info('==============================================================================================================================================================================');
 				curl_close($ch);
 				$planResponse = json_decode($response);
+
 				Log::info($response);
 				if (!empty($planResponse->error)) {
 					// $response = $this->apiResponse->getResponse(Response::HTTP_BAD_REQUEST, array(), $planResponse->error->description);
@@ -113,6 +164,29 @@ class RazorpayController extends Controller
 			Log::error("Package Plan Error");
 			Log::info('==============================================================================================================================================================================');
 			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage()];
+		}
+		return $response;
+	}
+
+	public function getPlan($planId)
+	{
+		try {
+			$url = "https://api.razorpay.com/v1/plans/";
+			$apiResponse = $this->getCall($url, $planId, $this->encodeRazorKey);
+
+			$response = (object) [
+				'statusCode' => 200,
+				'message' => "Plan Data",
+				'data' => $apiResponse,
+				'error' => []
+			];
+		} catch (Exception $e) {
+			$response = (object) [
+				'statusCode' => $e->getCode(),
+				'message' => $e->getMessage(),
+				'data' => [],
+				'error' => []
+			];
 		}
 		return $response;
 	}
@@ -402,6 +476,8 @@ class RazorpayController extends Controller
 	{
 		return empty($array) ? [] : $array;
 	}
+
+
 	public function createOrder($userId, $subscriptionId, $amount, $currency = 'INR', $receipt, $notes, $orderId = null)
 	{
 		$response = '';
@@ -593,6 +669,8 @@ class RazorpayController extends Controller
 							'created_at' => (string) $createdAtTimestamp,
 							// 'createdAtTimestamp' => (string) $createdAtTimestamp,
 						];
+						Log::info("paymentResult object");
+						Log::info($paymentResult);
 						$this->paymentRepository->createPayment((object) $paymentResult);
 						$this->updatePaymentStatus($paymentId);
 						if (!empty(config('arhamlabs_pg.allow_capture_payment')) && config('arhamlabs_pg.allow_capture_payment') == true) {
@@ -606,6 +684,8 @@ class RazorpayController extends Controller
 					$this->updatePaymentStatus($paymentId);
 					// $response = $this->apiResponse->getResponse(200, array('order_id' => $orderId, 'payment' => $jsonData)); // , '','','', [$capturePayment]
 					$response = (object) ['statusCode' => 200, 'message' => '', 'data' => (object) ['order_id' => $orderId, 'payment' => $jsonData], 'error' => []];
+					// dd('if',$response);
+					Log::error('Package Payment IF error');
 				} else {
 					// dd($orderId, $subscriptionId);
 					$this->updateOrderStatus($orderId, $subscriptionId);
@@ -614,6 +694,8 @@ class RazorpayController extends Controller
 					// $response = $this->apiResponse->getResponse(200, array('order_id' => $orderId, 'payment' => $jsonData)); // , '','','', [$capturePayment]
 					$response = (object) ['statusCode' => 200, 'message' => '', 'data' => (object) ['order_id' => $orderId, 'payment' => $jsonData], 'error' => []];
 					// throw new Exception("Order could not be found for the specified payment id $paymentId", Response::HTTP_UNPROCESSABLE_ENTITY);
+					// dd('else',$response);
+					Log::error('Package Payment ELSE error');
 				}
 			} else {
 				throw new Exception($this->validation()['message'], Response::HTTP_UNPROCESSABLE_ENTITY);
@@ -790,7 +872,7 @@ class RazorpayController extends Controller
 			$payment = $this->paymentRepository->getPaymentByPaymentId($this->paymentUrl, $paymentId, $this->encodeRazorKey);
 			$paymentResult = json_decode($payment);
 			// $paymentResult->orderId = $paymentResult->order_id;
-			// $paymentResult->paymentId = $paymentResult->id;
+			$paymentResult->payment_id = $paymentResult->id;
 			$status = $paymentResult->status;
 			// dd($paymentResult, $status);
 			$checkPaymentLogs = PlutusPaymentLog::where(['rzp_payment_id' => $paymentId, 'status' => $status])->exists();
@@ -1280,7 +1362,7 @@ class RazorpayController extends Controller
 				throw new Exception($this->validation()['message'], $this->validation()['statusCode']);
 			}
 		} catch (Exception $e) {
-			
+
 			Log::info('==============================================================================================================================================================================');
 			Log::error('Package Refund Error');
 			Log::error($e);
@@ -1366,6 +1448,98 @@ class RazorpayController extends Controller
 			Log::info('==============================================================================================================================================================================');
 			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => []];
 		}
+		Log::info('==============================================================================================================================================================================');
+		return $response;
+	}
+
+
+	public function transfer()
+	{
+		Log::info('==============================================================================================================================================================================');
+		try {
+			if ($this->validation()['statusCode'] == 200) {
+				if (config('arhamlabs_pg.transfer_fund') == false || config('arhamlabs_pg.transfer_fund') == null) {
+					throw new Exception('Please set transfer_fund to true in your .env file', 422);
+				}
+
+				if (empty(config('arhamlabs_pg.account_id')) || config('arhamlabs_pg.account_id') == null) {
+					throw new Exception('Please set account_id in your .env file', 422);
+				}
+
+				$transferUrl = "https://api.razorpay.com/v1/transfers";
+				$transferData = [
+					"account" => "acc_KO6cypkqQIsmaH",
+					"amount" => 100,
+					"currency" => "INR"
+				];
+				$transferResponseJson = ApiCall::postCall($transferUrl, $transferData, $this->encodeRazorKey);
+				$transferResponse = json_decode($transferResponseJson);
+
+				if (!empty($transferResponse->error) && !empty($transferResponse->error->description)) {
+					throw new Exception($transferResponse->error->description, Response::HTTP_BAD_REQUEST);
+				}
+				
+				if (!empty($transferResponse->status)) {
+					$checkPlutusTransfer = PlutusTransfer::where(['transfer_id' => $transferResponse->id])->exists();
+					if ($checkPlutusTransfer == true) {
+						$updateTransferData = [
+							'transfer_id' => $transferResponse->id,
+							'status' => $transferResponse->status,
+							'source' => $transferResponse->source,
+							'recipient' => $transferResponse->recipient,
+							'amount' => $transferResponse->amount,
+							'currency' => $transferResponse->currency,
+							'amount_reversed' => $transferResponse->amount_reversed,
+							'fees' => $transferResponse->fees,
+							'tax' => $transferResponse->tax,
+							'notes' => json_encode($transferResponse->notes),
+							'linked_account_notes' => json_encode($transferResponse->linked_account_notes),
+							'on_hold' => $transferResponse->on_hold,
+							'on_hold_until' => $transferResponse->on_hold_until,
+							'recipient_settlement_id' => $transferResponse->recipient_settlement_id,
+							'rzp_created_at' => $transferResponse->created_at,
+							'processed_at' => $transferResponse->processed_at,
+							'error' => json_encode($transferResponse->error)
+						];
+						PlutusTransfer::where(['transfer_id' => $transferResponse->id])->update($updateTransferData);
+
+					} else {
+						PlutusTransfer::create([
+							'uuid' => Str::uuid(),
+							'tranfer_type' => "direct",
+							'transfer_id' => $transferResponse->id,
+							'status' => $transferResponse->status,
+							'source' => $transferResponse->source,
+							'recipient' => $transferResponse->recipient,
+							'amount' => $transferResponse->amount,
+							'currency' => $transferResponse->currency,
+							'amount_reversed' => $transferResponse->amount_reversed,
+							'fees' => $transferResponse->fees,
+							'tax' => $transferResponse->tax,
+							'notes' => json_encode($transferResponse->notes),
+							'linked_account_notes' => json_encode($transferResponse->linked_account_notes),
+							'on_hold' => $transferResponse->on_hold,
+							'on_hold_until' => $transferResponse->on_hold_until,
+							'recipient_settlement_id' => $transferResponse->recipient_settlement_id,
+							'rzp_created_at' => $transferResponse->created_at,
+							'processed_at' => $transferResponse->processed_at,
+							'error' => json_encode($transferResponse->error),
+						]);
+					}
+				}
+				$response = (object) ['statusCode' => 200, 'message' => 'Transfer Data', 'data' => $transferResponse, 'error' => []];
+
+			}
+		} catch (Exception $e) {
+			Log::info('==============================================================================================================================================================================');
+			Log::error('Package Refund Error');
+			Log::error($e);
+			Log::error('Package Refund Error');
+			Log::info('==============================================================================================================================================================================');
+			$response = (object) ['statusCode' => $e->getCode(), 'message' => $e->getMessage(), 'data' => [], 'error' => $e->getMessage()];
+		}
+
+
 		Log::info('==============================================================================================================================================================================');
 		return $response;
 	}
