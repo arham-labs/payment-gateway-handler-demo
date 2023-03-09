@@ -1453,7 +1453,7 @@ class RazorpayController extends Controller
 	}
 
 
-	public function transfer()
+	public function transfer($accountId, $amount)
 	{
 		Log::info('==============================================================================================================================================================================');
 		try {
@@ -1468,8 +1468,8 @@ class RazorpayController extends Controller
 
 				$transferUrl = "https://api.razorpay.com/v1/transfers";
 				$transferData = [
-					"account" => "acc_KO6cypkqQIsmaH",
-					"amount" => 100,
+					"account" => $accountId, //acc_KO6cypkqQIsmaH
+					"amount" => $amount,
 					"currency" => "INR"
 				];
 				$transferResponseJson = ApiCall::postCall($transferUrl, $transferData, $this->encodeRazorKey);
@@ -1478,7 +1478,7 @@ class RazorpayController extends Controller
 				if (!empty($transferResponse->error) && !empty($transferResponse->error->description)) {
 					throw new Exception($transferResponse->error->description, Response::HTTP_BAD_REQUEST);
 				}
-				
+
 				if (!empty($transferResponse->status)) {
 					$checkPlutusTransfer = PlutusTransfer::where(['transfer_id' => $transferResponse->id])->exists();
 					if ($checkPlutusTransfer == true) {
