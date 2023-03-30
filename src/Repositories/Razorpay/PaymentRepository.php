@@ -42,7 +42,7 @@ class PaymentRepository implements PaymentRepositoryInterface
             'vpa' => $paymentResult->vpa,
             'email' => $paymentResult->email,
             'contact' => $paymentResult->contact,
-            'rzp_token_id' => $paymentResult->token_id,
+            'rzp_token_id' => empty($paymentResult->token_id) ? null : $paymentResult->token_id,
             'notes' => json_encode($paymentResult->notes),
             'fee' => $paymentResult->fee,
             'tax' => $paymentResult->tax,

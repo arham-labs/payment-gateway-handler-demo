@@ -512,6 +512,7 @@ class RazorpayController extends Controller
 				];
 
 				$response = ApiCall::postCall($this->orderUrl, $orderData, $this->encodeRazorKey);
+				
 				Log::info('==============================================================================================================================================================================');
 				Log::info('Package Create Order start');
 				Log::info((array) $response);
@@ -1468,7 +1469,8 @@ class RazorpayController extends Controller
 
 				$transferUrl = "https://api.razorpay.com/v1/transfers";
 				$transferData = [
-					"account" => $accountId, //acc_KO6cypkqQIsmaH
+					"account" => $accountId,
+					//acc_KO6cypkqQIsmaH
 					"amount" => $amount,
 					"currency" => "INR"
 				];
