@@ -30,108 +30,98 @@
 
 ### Create Order
 - Call createOrder function to create order with parameter
-- parameter 1: User Id(required)
-- Parameter 2: SubscriptionId(Which is null in one off payment)
-- Parameter 3: Amount in subunits(required).  for an amount of ₹295, enter 29500.
-- Parameter 4: Currency(required)
-- Parameter 5: Receipt(optional), 
-- Parameter 6: Notes(optional)
-- Parameter 7: Order Id(required) // Pass project order id here
-### Note: Order Id should be alphanumeric. eg: 'AL' . Str::upper(Str::random(13))
+    - parameter 1: User Id(required)
+    - Parameter 2: Amount in subunits(required).  for an amount of ₹295, enter 29500.
+    - Parameter 3: Currency(required)
+    - Parameter 4: Receipt(optional), 
+    - Parameter 5: Notes(optional)
+
+### Update Order Status
+- Call updateOrderStatus function to update or get the latest order status
+    - parameter 1: order Id(required)
+    - Parameter 2: subscription Id(optional)
+        - subscription ID required only for subscription, not for one-off payment
+
+### Fetch an Order With id
+- Call getOrderByOrderId function to fetch an order with razorpay order id.
+    - parameter 1: order Id(required)
 
 ### Verify Payment
 - After manual payment you will get razorpay_payment_id, razorpay_order_id, razorpay_signature
 - Now call verifySignature function to verify payment with parameter
-- parameter 1: razorpay_order_id(required)
-- Parameter 2: razorpay_payment_id(required).
-- Parameter 3: razorpay_signature(required)
+    - parameter 1: razorpay_order_id(required)
+    - Parameter 2: razorpay_payment_id(required).
+    - Parameter 3: razorpay_signature(required)
 
 ### Payment
 - After successfully verifying payment, use the payment function to obtain the necessary information from Razorpay. 
-- parameter 1: razorpay_payment_id(required)
-- parameter 2: razorpay_subscription_id(required in case of subscription)
-- Add data in our payments table
+    - parameter 1: razorpay_payment_id(required)
+    - Add data in our plutus payment table
+
+### Update Payment Status
+- Call updatePaymentStatus function to update or get the latest payment status
+    - parameter 1: payment Id(required)
+    
+
+### Fetch an Payment With id
+- Call getPaymentByPaymentId function to fetch an payment with razorpay payment id.
+    - parameter 1: payment Id(required) 
 
 ### Capture Payment
 - Call capture_payment function to cature payment and update payment status
-- parameter 1: razorpay_payment_id(required)
-- parameter 2: amount(required)
-- parameter 3: orderId(required)
-
-
-
-
-### Check Plan
-- function checkPlan($planId)
-- parameter 1: razorpay_plan_id(required)
-- To check plan exists or not
-
-### Create PrePlan($planId)
-- To create or get pre-plan data call createPrePlan($planId)
-- parameter 1: razorpay_plan_id(required)
-- Add plan data in plutus plan table if pre-plan not exists and return plan data from razorpay
+    - parameter 1: razorpay_payment_id(required)
+    - parameter 3: amount(required)
 
 ### Plan
-- To create run-time plan call plan($period, $interval, $amount, $notes)
-- parameter 1: period(required)
-- parameter 2: interval(required)
-- parameter 3: amount(required)
-- parameter 4: notes(optional)
+    A plan is a foundation on which a Subscription is built. It acts as a reusable template and contains details of the goods or services offered, the amount to be charged and the frequency at which the customer should be charged (billing cycle). Depending upon your business, you can create multiple plans with different billing cycles and pricing.
+- Call the plan function to create a run-time plan.
+    - parameter 1: period
+        #### This, combined with interval, defines the frequency. Possible values:
+        - daily
+        - weekly
+        - monthly
+        - yearly
+
+    - parameter 2: interval
+        - (integer) This, combined with period, defines the frequency. If the billing cycle is 2 months, the value should be 2.
+    - parameter 3: amount
+    - parameter 4: notes
+        - (object) Notes you can enter for the contact for future reference. This is a key-value pair. You can enter a maximum of 15 key-value pairs. For example, "note_key": "Beam me up Scotty”.
+- Call the getPlan function to retrieves the details of a plan using its unique identifier.
+    - parameter 1: razorpay_payment_id(required)
+
 
 ### Subscription
-- To create subscription call subscription($planId, $date, $addons, $notes, $offerId) function
-- parameter 1: planId(required)
-- parameter 2: date(optional if not passed current date will be consider)
-- parameter 3: addons(optional)
-- parameter 4: notes(optional)
-- parameter 5: offerId(optional)
+    You can use Subscriptions to charge a customer periodically. A Subscription ties a customer to a particular plan you have created. It contains details like the plan, the start date, total number of billing cycles, free trial period (if any) and upfront amount to be collected.
+- Call the subscription function to create new subscription.
+    - parameter 1: razorpay_payment_id(required)
+    - parameter 2: date(optional)
+        - If not passed, the Subscription starts immediately after the authorisation payment.
+    - parameter 3: addons(optional)
+        - Array that contains details of any upfront amount you want to collect as part of the authorisation transaction.
+    - parameter 3: notes(optional)
+        - (object) Notes you can enter for the contact for future reference. This is a key-value pair. You can enter a maximum of 15 key-value pairs. For example, "note_key": "Beam me up Scotty”.
+    - parameter 4: offer_id(optional)
+        - string The unique identifier of the offer that is linked to the Subscription. You can obtain this from the Dashboard.
+- Call the updateSubscriptionStatus function to update/get the latest status of the subscription
+    - parameter 1: razorpay_subscription_id(required)
+- To stop auto-renawal call stopAutoRenewal function
+    - parameter 1: razorpay_subscription_id(required)
+    - parameter 2: cancelAtCycleEnd(required)
+        - (boolean) Use this parameter to cancel a Subscription at the end of a billing cycle. Possible values:
+            - 1: Cancel the subscription at the end of the current billing cycle.
+- To cancel the subscription call cancel_subscription function 
+    - parameter 1: razorpay_subscription_id(required)
+    - parameter 2: cancelAtCycleEnd(required)
+        - (boolean) Use this parameter to cancel a Subscription at the end of a billing cycle. Possible values:
+            - 0 (default): Cancel the subscription immediately..
 
 
-### Update Subscription Status
-- To update subscription status call updateSubscriptionStatus($subscriptionId) function
-- parameter 1: subscriptionId(required)
-- To update subscription status in plutus_subscriptions table
-
-
-### Stop Auto Renewal
-- To stop auto-renewal call stopAutoRenewal($subscriptionId, $cancelAtCycleEnd) function
-- parameter 1: subscriptionId(required)
-- parameter 2: cancelAtCycleEnd(required)
-### Note: pass 1 to cancel the subscription at the end of the current billing cycle.
-
-### Refund payment
-- To refund payment call refund($paymentId, $amount, $notes)
-- parameter 1: paymentId(required)
-- parameter 2: amount(required)
-- parameter 3: notes(optional)
-
-
-### Cancel Subscription($subscriptionId, $cancelAtCycleEnd)
-- To cancel subscription call cancel_subscription($subscriptionId, $cancelAtCycleEnd) function
-- parameter 1: subscriptionId (required)
-- parameter 2: cancelAtCycleEnd (required)
-### Note: pass 0 to cancel the subscription immediately.
 
 
 
 ### Route/Fund Transfer
-- To transfer fund in other account call transfer($accountId, $amount) function
-- parameter 1: accountId (required)
-- parameter 2: amount (required)
-
-### Update Order Status
-- parameter 1: razorpay_order_id(required)
-- Parameter 2: razorpay_subscription_id(required in case of subscription).
-- To update order status in orders table
-
-### Get Order By OrderId
-- parameter 1: razorpay_order_id(required)
-- Return orders table data based on razorpay order id
-
-### Get Payment By PaymentId
-- parameter 1: razorpay_payment_id(required)
-- Return payments table data based on razorpay payment id
-
-### Update Payment Status
-- parameter 1: razorpay_payment_id(required)
-- To update payment status in payments table
+    Razorpay Route enables you to split payments received using the Razorpay Payment Gateway or other products (such as Payment Links, Payment Pages, Invoices, Subscriptions and Smart Collect) and transfer the funds to third parties, sellers or bank accounts.
+- To transfer funds, call the transfer function.
+    - parameter 1: account Id(required)
+    - parameter 2: amount(required)
