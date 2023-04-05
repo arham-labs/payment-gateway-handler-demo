@@ -25,8 +25,8 @@ class OrderRepository implements OrderRepositoryInterface
         $order = new PlutusOrder;
         $order->uuid = Str::uuid();
         $order->user_id = $orderData['user_id'];
-        $order->order_id = Str::upper(Str::random(15));
-        $order->rzp_subscription_id = empty( $orderData['rzp_subscription_id']) ? null :  $orderData['rzp_subscription_id'];
+        $order->order_id = empty($orderData['order_id']) ? Str::upper(Str::random(15)) : $orderData['order_id'];
+        $order->rzp_subscription_id = empty($orderData['rzp_subscription_id']) ? null : $orderData['rzp_subscription_id'];
         $order->rzp_order_id = $orderData['rzp_order_id'];
         $order->amount = $orderData['amount'];
         $order->currency = $orderData['currency'];

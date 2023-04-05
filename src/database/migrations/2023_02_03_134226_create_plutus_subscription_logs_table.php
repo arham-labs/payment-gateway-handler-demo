@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreatePgSubscriptionsTable extends Migration
+class CreatePlutusSubscriptionLogsTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,13 +13,17 @@ class CreatePgSubscriptionsTable extends Migration
      */
     public function up()
     {
-        Schema::create('pg_subscriptions', function (Blueprint $table) {
+        Schema::create('plutus_subscription_logs', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid');
             $table->string('rzp_plan_id');
             $table->string('rzp_subscription_id');
+            $table->string('rzp_payment_id')->nullable();
             $table->string('rzp_customer_id')->nullable();
             $table->string('status')->default('created');
+            $table->string('current_start_timestamp')->nullable();
+            $table->string('current_end_timestamp')->nullable();
+            $table->string('ended_at_timestamp')->nullable();
             $table->integer('quantity')->nullable();
             $table->json('notes')->nullable();
             $table->string('charge_at_timestamp')->nullable();
@@ -38,7 +42,7 @@ class CreatePgSubscriptionsTable extends Migration
             $table->string('source')->nullable();
             $table->timestamps();
 
-            $table->unique(['rzp_plan_id', 'rzp_subscription_id']);
+            $table->unique(['rzp_plan_id', 'rzp_subscription_id', 'rzp_payment_id'], 'plan_subs_pay_unique');
         });
     }
 
@@ -49,6 +53,6 @@ class CreatePgSubscriptionsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('pg_subscriptions');
+        Schema::dropIfExists('plutus_subscription_logs');
     }
 }

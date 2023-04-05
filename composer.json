@@ -15,7 +15,7 @@
     ],
     "minimum-stability": "dev",
     "require": {
-        "arhamlabs/error-handler": "^1.0"
+        "arhamlabs/error-handler": "2.1.1"
     },
     "prefer-stable": true
 }
